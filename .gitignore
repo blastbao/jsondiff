@@ -53,3 +53,5 @@ benchstats
 .benchruns
 coverage.txt
 dist/
+
+.idea

@@ -12,12 +12,12 @@ import (
 // These are defined in RFC 6902 section 4.
 // https://datatracker.ietf.org/doc/html/rfc6902#section-4
 const (
-	OperationAdd     = "add"
-	OperationReplace = "replace"
-	OperationRemove  = "remove"
-	OperationMove    = "move"
-	OperationCopy    = "copy"
-	OperationTest    = "test"
+	OperationAdd     = "add"		// 增加
+	OperationReplace = "replace"	// 替换
+	OperationRemove  = "remove"		// 移除
+	OperationMove    = "move"		// 移动
+	OperationCopy    = "copy"		// 拷贝
+	OperationTest    = "test"		// 测试
 )
 
 const (

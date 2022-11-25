@@ -62,26 +62,38 @@ func (d *Differ) diff(ptr pointer, src, tgt interface{}) {
 	if src == nil && tgt == nil {
 		return
 	}
+
+	// 如果 src 和 tgt 数据类型不一致
 	if !areComparable(src, tgt) {
+		// 当前为根结点
 		if ptr.isRoot() {
 			// If incomparable values are located at the root
 			// of the document, use an add operation to replace
 			// the entire content of the document.
 			// https://tools.ietf.org/html/rfc6902#section-4.1
+			//
+			// 如果不可比较的值位于文档的根节点，使用添加操作来替换整个文档的内容。
 			d.patch = d.patch.append(OperationAdd, emptyPtr, ptr, src, tgt)
 		} else {
 			// Values are incomparable, generate a replacement.
+			//
+			// 值不可比较，生成一个替换。
 			d.replace(ptr, src, tgt)
 		}
 		return
 	}
+
+	// 相等
 	if deepValueEqual(src, tgt, typeSwitchKind(src)) {
 		return
 	}
+
+	// 不相等
+
+
 	size := len(d.patch)
 
-	// Values are comparable, but are not
-	// equivalent.
+	// Values are comparable, but are not equivalent.
 	switch val := src.(type) {
 	case []interface{}:
 		d.compareArrays(ptr, val, tgt.([]interface{}))
@@ -95,18 +107,21 @@ func (d *Differ) diff(ptr pointer, src, tgt interface{}) {
 			return
 		}
 	}
+
 	// Rationalize any new operations.
 	if d.opts.rationalize && len(d.patch) > size {
 		d.rationalizeLastOps(ptr, src, tgt, size)
 	}
+
 }
 
 func (d *Differ) prepare(ptr pointer, src, tgt interface{}) {
 	if src == nil && tgt == nil {
 		return
 	}
-	// When both values are deeply equals, save
-	// the location indexed by the value hash.
+
+	// When both values are deeply equals, save the location indexed by the value hash.
+	// 当两个值都是深等值时，保存由值哈希索引的位置。
 	if !areComparable(src, tgt) {
 		return
 	} else if deepValueEqual(src, tgt, typeSwitchKind(src)) {
@@ -117,17 +132,21 @@ func (d *Differ) prepare(ptr pointer, src, tgt interface{}) {
 		d.hashmap[k] = jsonNode{ptr: ptr, val: tgt}
 		return
 	}
-	// At this point, the source and target values
-	// are non-nil and have comparable types.
+
+	// At this point, the source and target values are non-nil and have comparable types.
+	// 在这一点上，源值和目标值都是非空的，并且有可比较的类型。
 	switch vsrc := src.(type) {
 	case []interface{}:
+
 		oarr := vsrc
 		narr := tgt.([]interface{})
 
 		for i := 0; i < min(len(oarr), len(narr)); i++ {
 			d.prepare(ptr.appendIndex(i), oarr[i], narr[i])
 		}
+
 	case map[string]interface{}:
+
 		oobj := vsrc
 		nobj := tgt.(map[string]interface{})
 
@@ -172,32 +191,38 @@ func (d *Differ) rationalizeLastOps(ptr pointer, src, tgt interface{}, lastOpIdx
 // compareObjects generates the patch operations that
 // represents the differences between two JSON objects.
 func (d *Differ) compareObjects(ptr pointer, src, tgt map[string]interface{}) {
+	// 保存所有 keys 以及其是否属于 src、tgt
 	cmpSet := map[string]uint8{}
-
 	for k := range src {
-		cmpSet[k] |= 1 << 0
+		cmpSet[k] |= 1 << 0 // 最低位置为 1
 	}
 	for k := range tgt {
-		cmpSet[k] |= 1 << 1
+		cmpSet[k] |= 1 << 1 // 次低位置为 1
 	}
-	keys := make([]string, 0, len(cmpSet))
 
+	// 保存所有 keys 并排序
+	keys := make([]string, 0, len(cmpSet))
 	for k := range cmpSet {
 		keys = append(keys, k)
 	}
 	sortStrings(keys)
 
+
 	for _, k := range keys {
+
 		v := cmpSet[k]
-		inOld := v&(1<<0) != 0
-		inNew := v&(1<<1) != 0
+		inOld := v&(1<<0) != 0 // in src ?
+		inNew := v&(1<<1) != 0 // in tgt ?
 
 		switch {
 		case inOld && inNew:
+			// 递归 diff
 			d.diff(ptr.appendKey(k), src[k], tgt[k])
 		case inOld && !inNew:
+			// 被移除
 			d.remove(ptr.appendKey(k), src[k])
 		case !inOld && inNew:
+			// 被新增
 			d.add(ptr.appendKey(k), tgt[k])
 		}
 	}
@@ -206,23 +231,30 @@ func (d *Differ) compareObjects(ptr pointer, src, tgt map[string]interface{}) {
 // compareArrays generates the patch operations that
 // represents the differences between two JSON arrays.
 func (d *Differ) compareArrays(ptr pointer, src, tgt []interface{}) {
+
+
+
 	size := min(len(src), len(tgt))
 
 	// When the source array contains more elements
 	// than the target, entries are being removed
 	// from the destination and the removal index
 	// is always equal to the original array length.
+	//
 	for i := size; i < len(src); i++ {
 		d.remove(ptr.appendIndex(size), src[i])
 	}
+
 	if d.opts.equivalent && d.unorderedDeepEqualSlice(src, tgt) {
 		goto next
 	}
+
 	// Compare the elements at each index present in
 	// both the source and destination arrays.
 	for i := 0; i < size; i++ {
 		d.diff(ptr.appendIndex(i), src[i], tgt[i])
 	}
+
 next:
 	// When the target array contains more elements
 	// than the source, entries are appended to the
